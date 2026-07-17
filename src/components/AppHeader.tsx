@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Phone, LayoutDashboard, History, Users } from "lucide-react";
+import { LogOut, Phone, LayoutDashboard, History, Users, Menu } from "lucide-react";
 import logo from "@/assets/referencerh.png";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
 export function AppHeader() {
@@ -21,6 +22,7 @@ export function AppHeader() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -41,7 +43,7 @@ export function AppHeader() {
     "?";
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur relative">
       <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between gap-4">
         <Link to="/dashboard" className="flex items-center">
           <img
@@ -49,13 +51,53 @@ export function AppHeader() {
             alt="Reference RH"
             className="h-10 w-auto" />
         </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="md:hidden"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <Menu className="h-5 w-5" />
+        </Button>
         <nav className="hidden md:flex items-center gap-1">
-          <NavItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />
-          <NavItem to="/numeros" icon={<Phone className="h-4 w-4" />} label="Números" />
-          <NavItem to="/funcionarias" icon={<Users className="h-4 w-4" />} label="Colaboradoras" />
-          <NavItem to="/historico" icon={<History className="h-4 w-4" />} label="Histórico" />
+          <NavItem
+            to="/dashboard"
+            icon={<LayoutDashboard className="h-4 w-4" />}
+            label="Dashboard" />
+          <NavItem
+            to="/numeros"
+            icon={<Phone className="h-4 w-4" />}
+            label="Números" />
+          <NavItem
+            to="/funcionarias"
+            icon={<Users className="h-4 w-4" />}
+            label="Colaboradoras" />
+          <NavItem
+            to="/historico"
+            icon={<History className="h-4 w-4" />}
+            label="Histórico" />
         </nav>
-
+        {mobileMenuOpen && (
+          <div className="absolute top-14 left-0 right-0 bg-background border-b p-4 md:hidden">
+            <div className="flex flex-col gap-2">
+              <NavItem
+                to="/dashboard"
+                icon={<LayoutDashboard className="h-4 w-4" />}
+                label="Dashboard"/>
+              <NavItem
+                to="/numeros"
+                icon={<Phone className="h-4 w-4" />}
+                label="Números"/>
+              <NavItem
+                to="/funcionarias"
+                icon={<Users className="h-4 w-4" />}
+                label="Colaboradoras"/>
+              <NavItem
+                to="/historico"
+                icon={<History className="h-4 w-4" />}
+                label="Histórico"/>
+            </div>
+          </div>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="gap-2 px-2">
@@ -79,8 +121,9 @@ export function AppHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
+    </header >
   );
+}
   function NavItem({
     to,
     icon,
@@ -101,7 +144,3 @@ export function AppHeader() {
       </Link>
     );
   }
-  <Link to="/dashboard" className="flex items-center">
-    ...
-  </Link>
-}

@@ -214,19 +214,14 @@ function NumeroDetail() {
                     switch (historyFilter) {
                       case "all":
                         return true;
-
                       case "transfer":
                         return h.event_type === "transferred";
-
                       case "status_change":
                         return ["blocked", "unblocked"].includes(h.event_type);
-
                       case "activation":
                         return h.event_type === "activated";
-
                       case "deactivation":
                         return h.event_type === "deactivated";
-
                       default:
                         return true;
                     }
@@ -239,7 +234,6 @@ function NumeroDetail() {
                           : "bg-primary"
                           }`}
                       />
-
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-medium">
                           {EVENT_LABEL[h.event_type as HistoryEvent]}
@@ -248,7 +242,6 @@ function NumeroDetail() {
                           {formatDateTime(h.performed_at)}
                         </span>
                       </div>
-
                       <div className="text-sm text-muted-foreground mt-0.5 space-y-0.5">
                         {h.from_status && h.to_status && (
                           <div>
@@ -256,22 +249,17 @@ function NumeroDetail() {
                             <b>{STATUS_LABEL[h.to_status as PhoneStatus]}</b>
                           </div>
                         )}
-
                         {h.to_employee_id && (
                           <div>
-                            Responsável:
-                            {h.from?.name && (
+                            Responsável: {h.from?.name && (
                               <>
-                                {" "}
-                                de <b>{h.from.name}</b>
+                                {" "} de <b>{h.from.name}</b>
                               </>
                             )}{" "}
                             para <b>{h.to?.name ?? "—"}</b>
                           </div>
                         )}
-
                         {h.reason && <div>Motivo: {h.reason}</div>}
-
                         <div>Por: {h.by?.full_name || h.by?.email || "Sistema"}</div>
                       </div>
                     </li>
