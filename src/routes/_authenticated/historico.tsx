@@ -1,13 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  EVENT_LABEL, STATUS_LABEL, STATUS_DOT, formatPhone, formatDateTime,
-  type HistoryEvent, type PhoneStatus,
-} from "@/lib/phone-utils";
+import { EVENT_LABEL, STATUS_LABEL, STATUS_DOT, formatPhone, formatDateTime, type HistoryEvent, type PhoneStatus, } from "@/lib/phone-utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/historico")({
   head: () => ({ meta: [{ title: "Histórico — Controle WhatsApp" }] }),
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/_authenticated/historico")({
 });
 
 function HistoricoPage() {
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const q = useQuery({
     queryKey: ["global-history"],
     queryFn: async () => {
@@ -27,25 +29,73 @@ function HistoricoPage() {
       return data;
     },
   });
-
+  const history = (q.data ?? []).filter((h) => {
+    const numero = h.phone_numbers?.phone_number ?? "";
+    if (
+      search.trim() !== "" &&
+      !numero.includes(search.replace(/\D/g, ""))
+    ) {
+      return false;
+    }
+    switch (filter) {
+      case "all":
+        return true;
+      case "status_change":
+        return ["blocked", "unblocked", "reactivated"].includes(h.event_type);
+      case "transfer":
+        return h.event_type === "transferred";
+      case "activation":
+        return h.event_type === "activated";
+      case "deactivation":
+        return h.event_type === "deactivated";
+      case "permanent_ban":
+        return h.event_type === "banned";
+      default:
+        return true;
+    }
+  });
   return (
     <div className="min-h-screen bg-muted/20">
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold">Histórico geral</h1>
-          <p className="text-sm text-muted-foreground">Últimos 200 eventos registrados em todos os números.</p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold">Histórico geral</h1>
+            <p className="text-sm text-muted-foreground">
+              Últimos 200 eventos registrados em todos os números.
+            </p>
+          </div>
+          <Input
+            placeholder="Pesquisar número..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-64"
+          />
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="status_change">Mudança de status</SelectItem>
+              <SelectItem value="transfer">Transferências</SelectItem>
+              <SelectItem value="activation">Ativações</SelectItem>
+              <SelectItem value="deactivation">Desativações</SelectItem>
+              <SelectItem value="permanent_ban">Banimentos</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {q.isLoading ? (
           <div className="grid gap-2">{[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
-        ) : (q.data ?? []).length === 0 ? (
+        ) : history.length === 0 ? (
           <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhum evento registrado.</CardContent></Card>
         ) : (
           <Card>
             <CardContent className="p-4 sm:p-6">
               <ol className="relative border-l border-border ml-2 space-y-4">
-                {q.data!.map((h) => (
+                {history.map((h) => (
                   <li key={h.id} className="ml-4">
                     <span className={`absolute -left-1.5 w-3 h-3 rounded-full ${h.to_status ? STATUS_DOT[h.to_status as PhoneStatus] : "bg-primary"}`} />
                     <div className="flex flex-wrap items-baseline gap-2">

@@ -107,9 +107,9 @@ function NumerosPage() {
             </SelectContent>
           </Select>
           <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
-            <SelectTrigger><SelectValue placeholder="Funcionária" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Colaboradora" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas funcionárias</SelectItem>
+              <SelectItem value="all">Todas colaboradoras</SelectItem>
               <SelectItem value="unassigned">Sem responsável</SelectItem>
               {(employeesQ.data ?? []).map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
             </SelectContent>
@@ -172,13 +172,18 @@ function NewNumberDialog({
   const [employeeId, setEmployeeId] = useState<string>("none");
   const [whatsapp, setWhatsapp] = useState<WhatsappType>("business");
   const [status, setStatus] = useState<PhoneStatus>("working");
+  const [chipLocation, setChipLocation] = useState("");
   const [observations, setObservations] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setPhone(""); setEmployeeId("none"); setWhatsapp("business");
-      setStatus("working"); setObservations("");
+      setPhone("");
+      setEmployeeId("none");
+      setWhatsapp("business");
+      setStatus("working");
+      setChipLocation("");
+      setObservations("");
       setCarrierId(carriers[0]?.id ?? "");
     }
   }, [open, carriers]);
@@ -194,6 +199,7 @@ function NewNumberDialog({
       current_employee_id: employeeId === "none" ? null : employeeId,
       whatsapp_type: whatsapp,
       status,
+      chip_location: chipLocation.trim() || null,
       observations: observations.trim() || null,
     });
     setSaving(false);
@@ -251,6 +257,13 @@ function NewNumberDialog({
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label>Onde está o chip?</Label>
+              <Input
+                placeholder="Ex.: Aparelho MARIANA 01"
+                value={chipLocation}
+                onChange={(e) => setChipLocation(e.target.value)}/>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="n-obs">Observações</Label>

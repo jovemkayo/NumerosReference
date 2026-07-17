@@ -216,6 +216,7 @@ export type Database = {
           block_reason: string | null
           blocked_at: string | null
           carrier_id: string | null
+          chip_location: string | null
           created_at: string
           created_by: string | null
           current_employee_id: string | null
@@ -227,6 +228,9 @@ export type Database = {
           previous_number_id: string | null
           registered_at: string
           replacement_number_id: string | null
+          restricted_at: string | null
+          restriction_duration_days: number | null
+          restriction_ends_at: string | null
           status: Database["public"]["Enums"]["phone_status"]
           updated_at: string
           updated_by: string | null
@@ -237,6 +241,7 @@ export type Database = {
           block_reason?: string | null
           blocked_at?: string | null
           carrier_id?: string | null
+          chip_location?: string | null
           created_at?: string
           created_by?: string | null
           current_employee_id?: string | null
@@ -248,6 +253,9 @@ export type Database = {
           previous_number_id?: string | null
           registered_at?: string
           replacement_number_id?: string | null
+          restricted_at?: string | null
+          restriction_duration_days?: number | null
+          restriction_ends_at?: string | null
           status?: Database["public"]["Enums"]["phone_status"]
           updated_at?: string
           updated_by?: string | null
@@ -269,6 +277,10 @@ export type Database = {
           previous_number_id?: string | null
           registered_at?: string
           replacement_number_id?: string | null
+          chip_location?: string | null
+          restricted_at?: string | null
+          restriction_duration_days?: number | null
+          restriction_ends_at?: string | null
           status?: Database["public"]["Enums"]["phone_status"]
           updated_at?: string
           updated_by?: string | null
@@ -577,8 +589,7 @@ export const Constants = {
       ],
       phone_status: [
         "working",
-        "blocked",
-        "under_review",
+        "restricted",
         "deactivated",
         "permanently_banned",
       ],

@@ -4,9 +4,17 @@ export type PhoneStatus = Database["public"]["Enums"]["phone_status"];
 export type WhatsappType = Database["public"]["Enums"]["whatsapp_type"];
 export type HistoryEvent = Database["public"]["Enums"]["history_event"];
 
+// Status exibidos na UI (blocked e under_review ficam ocultos, apenas para compat)
+export const VISIBLE_STATUSES: PhoneStatus[] = [
+  "working",
+  "blocked",
+  "deactivated",
+  "permanently_banned",
+];
+
 export const STATUS_LABEL: Record<PhoneStatus, string> = {
   working: "Funcionando",
-  blocked: "Bloqueado",
+  blocked: "Restringido",
   under_review: "Em análise",
   deactivated: "Desativado",
   permanently_banned: "Banido permanentemente",
@@ -14,7 +22,7 @@ export const STATUS_LABEL: Record<PhoneStatus, string> = {
 
 export const STATUS_COLOR: Record<PhoneStatus, string> = {
   working: "bg-emerald-500 text-white",
-  blocked: "bg-red-500 text-white",
+  blocked: "bg-orange-500 text-white",
   under_review: "bg-yellow-500 text-black",
   deactivated: "bg-gray-400 text-white",
   permanently_banned: "bg-black text-white",
@@ -22,19 +30,13 @@ export const STATUS_COLOR: Record<PhoneStatus, string> = {
 
 export const STATUS_DOT: Record<PhoneStatus, string> = {
   working: "bg-emerald-500",
-  blocked: "bg-red-500",
+  blocked: "bg-orange-500",
   under_review: "bg-yellow-500",
   deactivated: "bg-gray-400",
   permanently_banned: "bg-black",
 };
 
-export const STATUS_ORDER: PhoneStatus[] = [
-  "working",
-  "blocked",
-  "under_review",
-  "deactivated",
-  "permanently_banned",
-];
+export const STATUS_ORDER: PhoneStatus[] = VISIBLE_STATUSES;
 
 export const WHATSAPP_LABEL: Record<WhatsappType, string> = {
   business: "WhatsApp Business",
@@ -45,8 +47,8 @@ export const WHATSAPP_LABEL: Record<WhatsappType, string> = {
 export const EVENT_LABEL: Record<HistoryEvent, string> = {
   created: "Cadastrado",
   activated: "Ativado",
-  blocked: "Bloqueado",
-  unblocked: "Desbloqueado",
+  blocked: "Restringido",
+  unblocked: "Restrição removida",
   transferred: "Transferido",
   deactivated: "Desativado",
   reactivated: "Reativado",

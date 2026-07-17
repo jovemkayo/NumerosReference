@@ -11,7 +11,7 @@ import { ArrowLeft, Phone, ChevronRight } from "lucide-react";
 import { formatPhone, WHATSAPP_LABEL, type PhoneStatus, type WhatsappType } from "@/lib/phone-utils";
 
 export const Route = createFileRoute("/_authenticated/funcionarias/$id")({
-  head: () => ({ meta: [{ title: "Funcionária — Controle WhatsApp" }] }),
+  head: () => ({ meta: [{ title: "Colaboradora — Controle WhatsApp" }] }),
   component: FuncionariaDetail,
 });
 
@@ -51,7 +51,7 @@ function FuncionariaDetail() {
         {empQ.isLoading ? (
           <Skeleton className="h-16 w-full mb-4" />
         ) : !empQ.data ? (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Funcionária não encontrada.</CardContent></Card>
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Colaboradora não encontrada.</CardContent></Card>
         ) : (
           <>
             <div className="flex items-center gap-3 mb-6">

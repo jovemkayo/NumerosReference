@@ -21,7 +21,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/funcionarias/")({
-  head: () => ({ meta: [{ title: "Funcionárias — Controle WhatsApp" }] }),
+  head: () => ({ meta: [{ title: "Colaboradoras — Controle WhatsApp" }] }),
   component: FuncionariasPage,
 });
 
@@ -61,7 +61,7 @@ function FuncionariasPage() {
       if (error) throw error;
     },
     onSuccess: (_d, emp) => {
-      toast.success(emp.is_active ? "Funcionária desativada." : "Funcionária reativada.");
+      toast.success(emp.is_active ? "Colaboradora desativada." : "Colaboradora reativada.");
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["dashboard-employees"] });
       setToggleTarget(null);
@@ -75,11 +75,11 @@ function FuncionariasPage() {
       <main className="mx-auto max-w-7xl px-4 py-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h1 className="text-2xl font-semibold">Funcionárias</h1>
-            <p className="text-sm text-muted-foreground">Cadastre e gerencie as funcionárias.</p>
+            <h1 className="text-2xl font-semibold">Colaboradoras</h1>
+            <p className="text-sm text-muted-foreground">Cadastre e gerencie as colaboradoras.</p>
           </div>
           <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1.5" /> Nova funcionária
+            <Plus className="h-4 w-4 mr-1.5" /> Nova colaboradora
           </Button>
         </div>
 
@@ -96,7 +96,7 @@ function FuncionariasPage() {
         {employeesQ.isLoading ? (
           <div className="grid gap-2">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
         ) : filtered.length === 0 ? (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhuma funcionária encontrada.</CardContent></Card>
+          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Nenhuma colaboradora encontrada.</CardContent></Card>
         ) : (
           <div className="grid gap-2">
             {filtered.map((e) => (
@@ -145,7 +145,7 @@ function FuncionariasPage() {
       <AlertDialog open={!!toggleTarget} onOpenChange={(o) => !o && setToggleTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{toggleTarget?.is_active ? "Desativar funcionária?" : "Reativar funcionária?"}</AlertDialogTitle>
+            <AlertDialogTitle>{toggleTarget?.is_active ? "Desativar colaboradora?" : "Reativar colaboradora?"}</AlertDialogTitle>
             <AlertDialogDescription>
               {toggleTarget?.is_active
                 ? "Ela deixará de aparecer nas listas ativas. Todos os dados e histórico são preservados."
@@ -187,7 +187,7 @@ function EmployeeDialog({
       : await supabase.from("employees").insert(payload);
     setSaving(false);
     if (error) return toast.error(error.message);
-    toast.success(employee ? "Funcionária atualizada." : "Funcionária cadastrada.");
+    toast.success(employee ? "Colaboradora atualizada." : "Colaboradora cadastrada.");
     onSaved();
     onOpenChange(false);
   }
@@ -196,7 +196,7 @@ function EmployeeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{employee ? "Editar funcionária" : "Nova funcionária"}</DialogTitle>
+          <DialogTitle>{employee ? "Editar colaboradora" : "Nova colaboradora"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSave} className="space-y-3">
           <div className="space-y-1.5">
