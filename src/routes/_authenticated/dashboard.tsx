@@ -13,7 +13,10 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
       { title: "Dashboard — Controle de Números WhatsApp" },
-      { name: "description", content: "Visão geral de números, colaboradoras e status." },
+      {
+        name: "description",
+        content: "Visão geral de números, colaboradoras e status.",
+      },
     ],
   }),
   component: DashboardPage,
@@ -21,16 +24,19 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const [q, setQ] = useState("");
-  if (typeof document === "undefined") {
-  return null;
-  }
 
   const totalsQ = useQuery({
     queryKey: ["dashboard-totals"],
     queryFn: async () => {
       const { data, error } = await supabase.from("phone_numbers").select("status");
       if (error) throw error;
-      const counts = { total: data.length, working: 0, restricted: 0, deactivated: 0, permanently_banned: 0 };
+      const counts = {
+        total: data.length,
+        working: 0,
+        restricted: 0,
+        deactivated: 0,
+        permanently_banned: 0,
+      };
       for (const r of data) {
         if (r.status === "working") counts.working++;
         else if (r.status == "blocked") counts.restricted++;
@@ -39,7 +45,7 @@ function DashboardPage() {
       }
       return counts;
     },
-});
+  });
 
   const employeesQ = useQuery({
     queryKey: ["dashboard-employees"],
@@ -50,8 +56,20 @@ function DashboardPage() {
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
-      type S = { total: number; working: number; restricted: number; deactivated: number; permanently_banned: number };
-      const empty = (): S => ({ total: 0, working: 0, restricted: 0, deactivated: 0, permanently_banned: 0 });
+      type S = {
+        total: number;
+        working: number;
+        restricted: number;
+        deactivated: number;
+        permanently_banned: number;
+      };
+      const empty = (): S => ({
+        total: 0,
+        working: 0,
+        restricted: 0,
+        deactivated: 0,
+        permanently_banned: 0,
+      });
       const byEmp = new Map<string, S>();
       for (const n of nums ?? []) {
         if (!n.current_employee_id) continue;
@@ -63,9 +81,10 @@ function DashboardPage() {
         else if (n.status === "permanently_banned") acc.permanently_banned++;
         byEmp.set(n.current_employee_id, acc);
       }
-       return (emps ?? []).map((e) => ({ ...e, stats: byEmp.get(e.id) ?? empty() 
-       }
-      ));
+      return (emps ?? []).map((e) => ({
+        ...e,
+        stats: byEmp.get(e.id) ?? empty(),
+      }));
     },
   });
   const filtered = useMemo(() => {
@@ -86,30 +105,67 @@ function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-        
-          <StatCard label="Total de números" value={t?.total} icon={<Phone className="h-4 w-4" />} loading={totalsQ.isLoading} />
-          <StatCard label={STATUS_LABEL.blocked} value={t?.restricted} icon={<AlertTriangle className="h-4 w-4 text-orange-500" />} loading={totalsQ.isLoading} />
-          <StatCard label={STATUS_LABEL.deactivated} value={t?.deactivated} icon={<PowerOff className="h-4 w-4 text-gray-500" />} loading={totalsQ.isLoading} />
-          <StatCard label={STATUS_LABEL.permanently_banned} value={t?.permanently_banned} icon={<Ban className="h-4 w-4" />} loading={totalsQ.isLoading} />
-          <StatCard label="Colaboradoras" value={employeesQ.data?.length} icon={<Users className="h-4 w-4" />} loading={employeesQ.isLoading} />
+          <StatCard
+            label="Total de números"
+            value={t?.total}
+            icon={<Phone className="h-4 w-4" />}
+            loading={totalsQ.isLoading}
+          />
+          <StatCard
+            label={STATUS_LABEL.blocked}
+            value={t?.restricted}
+            icon={<AlertTriangle className="h-4 w-4 text-orange-500" />}
+            loading={totalsQ.isLoading}
+          />
+          <StatCard
+            label={STATUS_LABEL.deactivated}
+            value={t?.deactivated}
+            icon={<PowerOff className="h-4 w-4 text-gray-500" />}
+            loading={totalsQ.isLoading}
+          />
+          <StatCard
+            label={STATUS_LABEL.permanently_banned}
+            value={t?.permanently_banned}
+            icon={<Ban className="h-4 w-4" />}
+            loading={totalsQ.isLoading}
+          />
+          <StatCard
+            label="Colaboradoras"
+            value={employeesQ.data?.length}
+            icon={<Users className="h-4 w-4" />}
+            loading={employeesQ.isLoading}
+          />
         </div>
 
         <div className="mb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Colaboradoras</h2>
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Pesquisar colaboradora..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+            <Input
+              placeholder="Pesquisar colaboradora..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="pl-9"
+            />
           </div>
         </div>
 
         {employeesQ.isLoading ? (
           <div className="grid gap-2">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="h-20" />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Nenhuma colaboradora encontrada. <Link to="/funcionarias" className="text-primary underline">Cadastrar agora</Link>.
-          </CardContent></Card>
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              Nenhuma colaboradora encontrada.{" "}
+              <Link to="/funcionarias" className="text-primary underline">
+                Cadastrar agora
+              </Link>
+              .
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {filtered.map((e) => (
@@ -122,14 +178,24 @@ function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="font-medium truncate">{e.name}</div>
-                        {!e.is_active && <span className="text-xs text-muted-foreground">(desativada)</span>}
+                        {!e.is_active && (
+                          <span className="text-xs text-muted-foreground">(desativada)</span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex flex-wrap gap-x-3">
                         <span>{e.stats.total} números</span>
-                        {e.stats.working > 0 && <span className="text-emerald-600">{e.stats.working} funcionando</span>}
-                        {e.stats.restricted > 0 && <span className="text-orange-600">{e.stats.restricted} restringidos</span>}
-                        {e.stats.deactivated > 0 && <span className="text-gray-500">{e.stats.deactivated} desativados</span>}
-                        {e.stats.permanently_banned > 0 && <span className="text-black">{e.stats.permanently_banned} banidos</span>}                      
+                        {e.stats.working > 0 && (
+                          <span className="text-emerald-600">{e.stats.working} funcionando</span>
+                        )}
+                        {e.stats.restricted > 0 && (
+                          <span className="text-orange-600">{e.stats.restricted} restringidos</span>
+                        )}
+                        {e.stats.deactivated > 0 && (
+                          <span className="text-gray-500">{e.stats.deactivated} desativados</span>
+                        )}
+                        {e.stats.permanently_banned > 0 && (
+                          <span className="text-black">{e.stats.permanently_banned} banidos</span>
+                        )}
                       </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -143,7 +209,17 @@ function DashboardPage() {
     </div>
   );
 }
-function StatCard({ label, value, icon, loading }: { label: string; value: number | undefined; icon: React.ReactNode; loading: boolean }) {
+function StatCard({
+  label,
+  value,
+  icon,
+  loading,
+}: {
+  label: string;
+  value: number | undefined;
+  icon: React.ReactNode;
+  loading: boolean;
+}) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -151,7 +227,11 @@ function StatCard({ label, value, icon, loading }: { label: string; value: numbe
           <span className="truncate">{label}</span>
           {icon}
         </div>
-        {loading ? <Skeleton className="h-7 w-12" /> : <div className="text-2xl font-semibold">{value ?? 0}</div>}
+        {loading ? (
+          <Skeleton className="h-7 w-12" />
+        ) : (
+          <div className="text-2xl font-semibold">{value ?? 0}</div>
+        )}
       </CardContent>
     </Card>
   );

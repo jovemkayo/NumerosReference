@@ -8,27 +8,66 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { logInfo, logError } from "@/lib/logger";
+import { useAuth } from "@/hooks/useAuth";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, ArrowRightLeft, Pencil, Save, History as HistoryIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  STATUS_LABEL, STATUS_ORDER, WHATSAPP_LABEL, EVENT_LABEL,
-  STATUS_DOT, formatPhone, formatDateTime,
-  type PhoneStatus, type WhatsappType, type HistoryEvent,
+  STATUS_LABEL,
+  STATUS_ORDER,
+  WHATSAPP_LABEL,
+  EVENT_LABEL,
+  STATUS_DOT,
+  formatPhone,
+  formatDateTime,
+  type PhoneStatus,
+  type WhatsappType,
+  type HistoryEvent,
 } from "@/lib/phone-utils";
+type PhoneNumberDetail = {
+  id: string;
+  phone_number?: string | null;
+  carrier_id?: string | null;
+  whatsapp_type?: string | null;
+  chip_location?: string | null;
+  observations?: string | null;
+  current_employee_id?: string | null;
+  status?: string | null;
+  employees?: { name?: string | null } | null;
+  prev?: { name?: string | null } | null;
+  carriers?: { name?: string | null } | null;
+  registered_at?: string | null;
+  activated_at?: string | null;
+  restricted_at?: string | null;
+  blocked_at?: string | null;
+  restriction_duration_days?: number | null;
+  restriction_ends_at?: string | null;
+  deactivated_at?: string | null;
+};
 export const Route = createFileRoute("/_authenticated/numeros/$id")({
   head: () => ({ meta: [{ title: "Número — Controle WhatsApp" }] }),
   component: NumeroDetail,
 });
 function NumeroDetail() {
   const { id } = useParams({ from: "/_authenticated/numeros/$id" });
+  const { isAdmin } = useAuth();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -39,7 +78,9 @@ function NumeroDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("phone_numbers")
-        .select("*,employees!current_employee_id(name),prev:employees!previous_employee_id(name),carriers(name)")
+        .select(
+          "*,employees!current_employee_id(name),prev:employees!previous_employee_id(name),carriers(name)",
+        )
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
@@ -49,7 +90,11 @@ function NumeroDetail() {
   const statsQ = useQuery({
     queryKey: ["number-stats", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("phone_number_stats").select("*").eq("phone_number_id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("phone_number_stats")
+        .select("*")
+        .eq("phone_number_id", id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -59,7 +104,9 @@ function NumeroDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("phone_number_history")
-        .select("*,from:employees!from_employee_id(name),to:employees!to_employee_id(name),by:profiles!performed_by(full_name,email)")
+        .select(
+          "*,from:employees!from_employee_id(name),to:employees!to_employee_id(name),by:profiles!performed_by(full_name,email)",
+        )
         .eq("phone_number_id", id)
         .order("performed_at", { ascending: false });
       if (error) throw error;
@@ -69,7 +116,11 @@ function NumeroDetail() {
   const employeesQ = useQuery({
     queryKey: ["employees-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("employees").select("id,name").eq("is_active", true).order("name");
+      const { data, error } = await supabase
+        .from("employees")
+        .select("id,name")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -77,7 +128,11 @@ function NumeroDetail() {
   const carriersQ = useQuery({
     queryKey: ["carriers-active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("carriers").select("id,name").eq("is_active", true).order("name");
+      const { data, error } = await supabase
+        .from("carriers")
+        .select("id,name")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -95,7 +150,9 @@ function NumeroDetail() {
     return (
       <div className="min-h-screen bg-muted/20">
         <AppHeader />
-        <main className="mx-auto max-w-5xl px-4 py-6"><Skeleton className="h-40 w-full" /></main>
+        <main className="mx-auto max-w-5xl px-4 py-6">
+          <Skeleton className="h-40 w-full" />
+        </main>
       </div>
     );
   }
@@ -104,50 +161,65 @@ function NumeroDetail() {
       <div className="min-h-screen bg-muted/20">
         <AppHeader />
         <main className="mx-auto max-w-5xl px-4 py-6">
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Número não encontrado.</CardContent></Card>
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              Número não encontrado.
+            </CardContent>
+          </Card>
         </main>
       </div>
     );
   }
   const n = numQ.data;
   const stats = statsQ.data;
-  console.log("HISTÓRICO", historyQ.data);
-  console.log("Número:", n);
-  console.log("Chip:", n.chip_location);
+
   return (
     <div className="min-h-screen bg-muted/20">
       <AppHeader />
       <main className="mx-auto max-w-5xl px-4 py-6">
-        <Link to="/numeros" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+        <Link
+          to="/numeros"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Link>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
           <div className="flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-semibold">
-                {formatPhone(n.phone_number)}
-              </h1>
+              <h1 className="text-2xl font-semibold">{formatPhone(n.phone_number)}</h1>
               <button
                 type="button"
                 onClick={() => setStatusOpen(true)}
-                className="rounded-md transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary">
+                className="rounded-md transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
                 <StatusBadge status={n.status as PhoneStatus} />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {n.carriers?.name ?? "Sem operadora"} · {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]}
+              {n.carriers?.name ?? "Sem operadora"} ·{" "}
+              {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => setStatusOpen(true)}>Mudar status</Button>
-            <Button variant="outline" onClick={() => setTransferOpen(true)}><ArrowRightLeft className="h-4 w-4 mr-1.5" /> Transferir</Button>
-            <Button onClick={() => setEditOpen(true)}><Pencil className="h-4 w-4 mr-1.5" /> Editar</Button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => setStatusOpen(true)}>
+                Mudar status
+              </Button>
+              <Button variant="outline" onClick={() => setTransferOpen(true)}>
+                <ArrowRightLeft className="h-4 w-4 mr-1.5" /> Transferir
+              </Button>
+              <Button onClick={() => setEditOpen(true)}>
+                <Pencil className="h-4 w-4 mr-1.5" /> Editar
+              </Button>
+            </div>
+          )}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <Card className="lg:col-span-2">
-            <CardHeader><CardTitle className="text-base">Informações</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Informações</CardTitle>
+            </CardHeader>
             <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <Info label="Responsável atual" value={n.employees?.name ?? "—"} />
               <Info label="Responsável anterior" value={n.prev?.name ?? "—"} />
@@ -157,7 +229,12 @@ function NumeroDetail() {
               <Info label="Onde está o chip?" value={n.chip_location || "—"} />
               {n.status === "blocked" && (
                 <>
-                  <Info label="Duração da restrição" value={n.restriction_duration_days ? `${n.restriction_duration_days} dia(s)` : "—"} />
+                  <Info
+                    label="Duração da restrição"
+                    value={
+                      n.restriction_duration_days ? `${n.restriction_duration_days} dia(s)` : "—"
+                    }
+                  />
                   <Info label="Fim da restrição" value={formatDateTime(n.restriction_ends_at)} />
                 </>
               )}
@@ -169,7 +246,9 @@ function NumeroDetail() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle className="text-base">Estatísticas</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Estatísticas</CardTitle>
+            </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 text-sm">
               <StatItem label="Bloqueios" value={stats?.block_count ?? 0} />
               <StatItem label="Transferências" value={stats?.transfer_count ?? 0} />
@@ -185,10 +264,7 @@ function NumeroDetail() {
               Histórico
             </CardTitle>
 
-            <Select
-              value={historyFilter}
-              onValueChange={setHistoryFilter}
-            >
+            <Select value={historyFilter} onValueChange={setHistoryFilter}>
               <SelectTrigger className="w-44">
                 <SelectValue />
               </SelectTrigger>
@@ -204,13 +280,19 @@ function NumeroDetail() {
           </CardHeader>
           <CardContent>
             {historyQ.isLoading ? (
-              <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-14" />
+                ))}
+              </div>
             ) : (historyQ.data ?? []).length === 0 ? (
-              <div className="text-sm text-muted-foreground text-center py-6">Sem eventos registrados.</div>
+              <div className="text-sm text-muted-foreground text-center py-6">
+                Sem eventos registrados.
+              </div>
             ) : (
               <ol className="relative border-l border-border ml-2 space-y-4">
-                {historyQ.data!
-                  .filter((h) => {
+                {historyQ
+                  .data!.filter((h) => {
                     switch (historyFilter) {
                       case "all":
                         return true;
@@ -229,10 +311,9 @@ function NumeroDetail() {
                   .map((h) => (
                     <li key={h.id} className="ml-4">
                       <span
-                        className={`absolute -left-1.5 w-3 h-3 rounded-full ${h.to_status
-                          ? STATUS_DOT[h.to_status as PhoneStatus]
-                          : "bg-primary"
-                          }`}
+                        className={`absolute -left-1.5 w-3 h-3 rounded-full ${
+                          h.to_status ? STATUS_DOT[h.to_status as PhoneStatus] : "bg-primary"
+                        }`}
                       />
                       <div className="flex flex-wrap items-baseline gap-2">
                         <span className="font-medium">
@@ -251,9 +332,11 @@ function NumeroDetail() {
                         )}
                         {h.to_employee_id && (
                           <div>
-                            Responsável: {h.from?.name && (
+                            Responsável:{" "}
+                            {h.from?.name && (
                               <>
-                                {" "} de <b>{h.from.name}</b>
+                                {" "}
+                                de <b>{h.from.name}</b>
                               </>
                             )}{" "}
                             para <b>{h.to?.name ?? "—"}</b>
@@ -263,25 +346,29 @@ function NumeroDetail() {
                         <div>Por: {h.by?.full_name || h.by?.email || "Sistema"}</div>
                       </div>
                     </li>
-            ))}
-             </ol>
+                  ))}
+              </ol>
             )}
           </CardContent>
         </Card>
       </main>
 
       <EditNumberDialog
-        open={editOpen} onOpenChange={setEditOpen} number={n}
-        employees={employeesQ.data ?? []} carriers={carriersQ.data ?? []}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        number={n}
+        employees={employeesQ.data ?? []}
+        carriers={carriersQ.data ?? []}
         onSaved={refresh}
       />
       <TransferDialog
-        open={transferOpen} onOpenChange={setTransferOpen} number={n}
-        employees={employeesQ.data ?? []} onSaved={refresh}
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        number={n}
+        employees={employeesQ.data ?? []}
+        onSaved={refresh}
       />
-      <StatusDialog
-        open={statusOpen} onOpenChange={setStatusOpen} number={n} onSaved={refresh}
-      />
+      <StatusDialog open={statusOpen} onOpenChange={setStatusOpen} number={n} onSaved={refresh} />
     </div>
   );
 }
@@ -305,10 +392,18 @@ function StatItem({ label, value }: { label: string; value: number }) {
 }
 
 function EditNumberDialog({
-  open, onOpenChange, number, employees, carriers, onSaved,
+  open,
+  onOpenChange,
+  number,
+  employees,
+  carriers,
+  onSaved,
 }: {
-  open: boolean; onOpenChange: (o: boolean) => void; number: any;
-  employees: { id: string; name: string }[]; carriers: { id: string; name: string }[];
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  number: PhoneNumberDetail;
+  employees: { id: string; name: string }[];
+  carriers: { id: string; name: string }[];
   onSaved: () => void;
 }) {
   const [phone, setPhone] = useState("");
@@ -331,15 +426,31 @@ function EditNumberDialog({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const { error } = await supabase.from("phone_numbers").update({
-      phone_number: phone.replace(/\D/g, ""),
-      carrier_id: carrierId || null,
-      whatsapp_type: whatsapp,
-      chip_location: chipLocation.trim() || null,
-      observations: observations.trim() || null,
-    }).eq("id", number.id);
-    setSaving(false);
-    if (error) return toast.error(error.message);
+    const { error } = await supabase
+      .from("phone_numbers")
+      .update({
+        phone_number: phone.replace(/\D/g, ""),
+        carrier_id: carrierId || null,
+        whatsapp_type: whatsapp,
+        chip_location: chipLocation.trim() || null,
+        observations: observations.trim() || null,
+      })
+      .eq("id", number.id);
+    if (error) {
+      logError("Failed to update phone number", {
+        action: "phone_number.update",
+        phoneNumberId: number.id,
+        error,
+      });
+
+      return toast.error(error.message);
+    }
+
+    logInfo("Phone number updated", {
+      action: "phone_number.update",
+      phoneNumberId: number.id,
+    });
+
     toast.success("Alterações salvas.");
     onSaved();
     onOpenChange(false);
@@ -348,7 +459,9 @@ function EditNumberDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>Editar número</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Editar número</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSave} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Número</Label>
@@ -358,16 +471,24 @@ function EditNumberDialog({
             <div className="space-y-1.5">
               <Label>Operadora</Label>
               <Select value={carrierId} onValueChange={setCarrierId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {carriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {carriers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>WhatsApp</Label>
               <Select value={whatsapp} onValueChange={(v) => setWhatsapp(v as WhatsappType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="business">Business</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
@@ -378,15 +499,28 @@ function EditNumberDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Onde está o chip?</Label>
-            <Input value={chipLocation} onChange={(e) => setChipLocation(e.target.value)} placeholder="Ex.: Aparelho MARIANA 01" />
+            <Input
+              value={chipLocation}
+              onChange={(e) => setChipLocation(e.target.value)}
+              placeholder="Ex.: Aparelho MARIANA 01"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Observações</Label>
-            <Textarea rows={3} value={observations} onChange={(e) => setObservations(e.target.value)} />
+            <Textarea
+              rows={3}
+              value={observations}
+              onChange={(e) => setObservations(e.target.value)}
+            />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={saving}><Save className="h-4 w-4 mr-1.5" />Salvar</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              <Save className="h-4 w-4 mr-1.5" />
+              Salvar
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -395,10 +529,17 @@ function EditNumberDialog({
 }
 
 function TransferDialog({
-  open, onOpenChange, number, employees, onSaved,
+  open,
+  onOpenChange,
+  number,
+  employees,
+  onSaved,
 }: {
-  open: boolean; onOpenChange: (o: boolean) => void; number: any;
-  employees: { id: string; name: string }[]; onSaved: () => void;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  number: PhoneNumberDetail;
+  employees: { id: string; name: string }[];
+  onSaved: () => void;
 }) {
   const [target, setTarget] = useState<string>("none");
   const [saving, setSaving] = useState(false);
@@ -412,11 +553,28 @@ function TransferDialog({
       return toast.error("Selecione uma colaboradora diferente.");
     }
     setSaving(true);
-    const { error } = await supabase.from("phone_numbers")
+    const { error } = await supabase
+      .from("phone_numbers")
       .update({ current_employee_id: target === "none" ? null : target })
       .eq("id", number.id);
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      logError("Failed to transfer phone number", {
+        action: "phone_number.transfer",
+        phoneNumberId: number.id,
+        targetEmployeeId: target === "none" ? null : target,
+        error,
+      });
+
+      return toast.error(error.message);
+    }
+
+    logInfo("Phone number transferred", {
+      action: "phone_number.transfer",
+      phoneNumberId: number.id,
+      targetEmployeeId: target === "none" ? null : target,
+    });
+
     toast.success("Transferência registrada.");
     onSaved();
     onOpenChange(false);
@@ -428,22 +586,33 @@ function TransferDialog({
         <DialogHeader>
           <DialogTitle>Transferir número</DialogTitle>
           <DialogDescription>
-            Atual: <b>{number.employees?.name ?? "Sem responsável"}</b>. O histórico será preservado.
+            Atual: <b>{number.employees?.name ?? "Sem responsável"}</b>. O histórico será
+            preservado.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
           <Label>Novo responsável</Label>
           <Select value={target} onValueChange={setTarget}>
-            <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Sem responsável</SelectItem>
-              {employees.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+              {employees.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleTransfer} disabled={saving}>Confirmar transferência</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleTransfer} disabled={saving}>
+            Confirmar transferência
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -451,8 +620,16 @@ function TransferDialog({
 }
 
 function StatusDialog({
-  open, onOpenChange, number, onSaved,
-}: { open: boolean; onOpenChange: (o: boolean) => void; number: any; onSaved: () => void }) {
+  open,
+  onOpenChange,
+  number,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  number: PhoneNumberDetail;
+  onSaved: () => void;
+}) {
   const [status, setStatus] = useState<PhoneStatus>("working");
   const [reason, setReason] = useState("");
   const [duration, setDuration] = useState<"1" | "7">("1");
@@ -478,7 +655,7 @@ function StatusDialog({
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
-        })
+        }),
       );
     }
   }, [open, number]);
@@ -508,7 +685,25 @@ function StatusDialog({
     }
     const { error } = await supabase.from("phone_numbers").update(payload).eq("id", number.id);
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      logError("Failed to update phone number status", {
+        action: "phone_number.status_update",
+        phoneNumberId: number.id,
+        fromStatus: number.status,
+        toStatus: status,
+        error,
+      });
+
+      return toast.error(error.message);
+    }
+
+    logInfo("Phone number status updated", {
+      action: "phone_number.status_update",
+      phoneNumberId: number.id,
+      fromStatus: number.status,
+      toStatus: status,
+    });
+
     toast.success("Status atualizado.");
     onSaved();
     onOpenChange(false);
@@ -517,14 +712,22 @@ function StatusDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Alterar status</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Alterar status</DialogTitle>
+        </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Novo status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as PhoneStatus)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+                {STATUS_ORDER.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -534,20 +737,26 @@ function StatusDialog({
                 <div className="space-y-1.5">
                   <Label>Data da restrição</Label>
                   <Input
-                    type="date" value={restrictionDate}
-                    onChange={(e) => setRestrictionDate(e.target.value)} />
+                    type="date"
+                    value={restrictionDate}
+                    onChange={(e) => setRestrictionDate(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Hora da restrição</Label>
                   <Input
-                    type="time" value={restrictionTime}
-                    onChange={(e) => setRestrictionTime(e.target.value)} />
+                    type="time"
+                    value={restrictionTime}
+                    onChange={(e) => setRestrictionTime(e.target.value)}
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Duração</Label>
                 <Select value={duration} onValueChange={(v) => setDuration(v as "1" | "7")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="1">1 dia</SelectItem>
                     <SelectItem value="7">7 dias</SelectItem>
@@ -557,7 +766,7 @@ function StatusDialog({
                   Fim previsto:{" "}
                   {new Date(
                     new Date(`${restrictionDate}T${restrictionTime}:00`).getTime() +
-                    Number(duration) * 24 * 60 * 60 * 1000
+                      Number(duration) * 24 * 60 * 60 * 1000,
                   ).toLocaleString("pt-BR")}
                 </p>
               </div>
@@ -569,8 +778,12 @@ function StatusDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>Confirmar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            Confirmar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { logError } from "@/lib/logger";
 
 function NotFoundComponent() {
   return (
@@ -37,7 +38,10 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  logError("Root error boundary caught error", {
+    action: "ui.root_error_boundary",
+    error,
+  });
   const router = useRouter();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
@@ -80,10 +84,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Controle de Números WhatsApp" },
-      { name: "description", content: "Sistema de gestão de números WhatsApp, colaboradoras e histórico." },
+      {
+        name: "description",
+        content: "Sistema de gestão de números WhatsApp, colaboradoras e histórico.",
+      },
       { name: "author", content: "Controle WhatsApp" },
       { property: "og:title", content: "Controle de Números WhatsApp" },
-      { property: "og:description", content: "Sistema de gestão de números WhatsApp, colaboradoras e histórico." },
+      {
+        property: "og:description",
+        content: "Sistema de gestão de números WhatsApp, colaboradoras e histórico.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

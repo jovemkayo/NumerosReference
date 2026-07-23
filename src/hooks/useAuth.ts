@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { logWarn, logError } from "@/lib/logger";
 
 export type AppRole = "admin" | "user";
 
@@ -16,7 +17,14 @@ export function useAuth() {
       setUser(s?.user ?? null);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        logWarn("Failed to get auth session", {
+          action: "auth.get_session",
+          error,
+        });
+      }
+
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setLoading(false);
@@ -35,7 +43,17 @@ export function useAuth() {
       .select("role")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => setRole((data?.role as AppRole) ?? "user"));
+      .then(({ data, error }) => {
+        if (error) {
+          logError("Failed to load user role", {
+            action: "auth.load_user_role",
+            userId: user.id,
+            error,
+          });
+        }
+
+        setRole((data?.role as AppRole) ?? "user");
+      });
   }, [user]);
 
   return { session, user, role, loading, isAdmin: role === "admin" };

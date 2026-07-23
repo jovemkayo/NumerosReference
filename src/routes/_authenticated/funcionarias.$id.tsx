@@ -8,7 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, Phone, ChevronRight } from "lucide-react";
-import { formatPhone, WHATSAPP_LABEL, type PhoneStatus, type WhatsappType } from "@/lib/phone-utils";
+import {
+  formatPhone,
+  WHATSAPP_LABEL,
+  type PhoneStatus,
+  type WhatsappType,
+} from "@/lib/phone-utils";
 
 export const Route = createFileRoute("/_authenticated/funcionarias/$id")({
   head: () => ({ meta: [{ title: "Colaboradora — Controle WhatsApp" }] }),
@@ -21,7 +26,11 @@ function FuncionariaDetail() {
   const empQ = useQuery({
     queryKey: ["employee", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("employees").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -44,14 +53,21 @@ function FuncionariaDetail() {
     <div className="min-h-screen bg-muted/20">
       <AppHeader />
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <Link to="/funcionarias" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+        <Link
+          to="/funcionarias"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
           <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
         </Link>
 
         {empQ.isLoading ? (
           <Skeleton className="h-16 w-full mb-4" />
         ) : !empQ.data ? (
-          <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Colaboradora não encontrada.</CardContent></Card>
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              Colaboradora não encontrada.
+            </CardContent>
+          </Card>
         ) : (
           <>
             <div className="flex items-center gap-3 mb-6">
@@ -71,11 +87,21 @@ function FuncionariaDetail() {
 
             <h2 className="text-lg font-semibold mb-3">Números atribuídos</h2>
             {numsQ.isLoading ? (
-              <div className="grid gap-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16" />)}</div>
+              <div className="grid gap-2">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-16" />
+                ))}
+              </div>
             ) : (numsQ.data ?? []).length === 0 ? (
-              <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">
-                Nenhum número atribuído. <Link to="/numeros" className="text-primary underline">Cadastrar número</Link>.
-              </CardContent></Card>
+              <Card>
+                <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                  Nenhum número atribuído.{" "}
+                  <Link to="/numeros" className="text-primary underline">
+                    Cadastrar número
+                  </Link>
+                  .
+                </CardContent>
+              </Card>
             ) : (
               <div className="grid gap-2">
                 {numsQ.data!.map((n) => (
@@ -88,7 +114,8 @@ function FuncionariaDetail() {
                         <div className="flex-1 min-w-0">
                           <div className="font-medium">{formatPhone(n.phone_number)}</div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {n.carriers?.name ?? "Sem operadora"} · {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]}
+                            {n.carriers?.name ?? "Sem operadora"} ·{" "}
+                            {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]}
                           </div>
                         </div>
                         <StatusBadge status={n.status as PhoneStatus} />

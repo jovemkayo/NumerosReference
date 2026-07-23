@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Loader2, Phone } from "lucide-react";
 import logo from "@/assets/referencerh.png";
+import { logInfo, logWarn } from "@/lib/logger";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -19,7 +20,10 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Entrar — Controle de Números WhatsApp" },
-      { name: "description", content: "Acesse o sistema de controle de números WhatsApp." },
+      {
+        name: "description",
+        content: "Acesse o sistema de controle de números WhatsApp.",
+      },
     ],
   }),
   component: AuthPage,
@@ -44,12 +48,28 @@ function AuthPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setLoading(false);
     if (error) {
-      toast.error(error.message === "Invalid login credentials" ? "E-mail ou senha inválidos." : error.message);
+      logWarn("Login failed", {
+        action: "auth.login",
+        email,
+        reason: error.message,
+      });
+      toast.error(
+        error.message === "Invalid login credentials"
+          ? "E-mail ou senha inválidos."
+          : error.message,
+      );
       return;
     }
+    logInfo("Login succeeded", {
+      action: "auth.login",
+      email,
+    });
     toast.success("Bem-vindo(a)!");
   }
 
@@ -66,9 +86,18 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) {
+      logWarn("Signup failed", {
+        action: "auth.signup",
+        email,
+        error,
+      });
       toast.error(error.message);
       return;
     }
+    logInfo("Signup succeeded", {
+      action: "auth.signup",
+      email,
+    });
     toast.success("Conta criada! Você já pode entrar.");
   }
 
@@ -76,15 +105,9 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4 py-10">
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-6">
-          <img
-            src={logo}
-            alt="Reference RH"
-            className="h-20 w-auto mb-4"
-          />
+          <img src={logo} alt="Reference RH" className="h-20 w-auto mb-4" />
 
-          <h1 className="text-2xl font-semibold text-center">
-            Controle de Números WhatsApp
-          </h1>
+          <h1 className="text-2xl font-semibold text-center">Controle de Números WhatsApp</h1>
 
           <p className="text-sm text-muted-foreground text-center mt-1">
             Gestão de chips, colaboradoras e histórico
@@ -107,11 +130,23 @@ function AuthPage() {
                 <form onSubmit={handleLogin} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="l-email">E-mail</Label>
-                    <Input id="l-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <Input
+                      id="l-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="l-pass">Senha</Label>
-                    <Input id="l-pass" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <Input
+                      id="l-pass"
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -124,15 +159,33 @@ function AuthPage() {
                 <form onSubmit={handleSignup} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="s-name">Nome completo</Label>
-                    <Input id="s-name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                    <Input
+                      id="s-name"
+                      required
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="s-email">E-mail</Label>
-                    <Input id="s-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <Input
+                      id="s-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="s-pass">Senha</Label>
-                    <Input id="s-pass" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                    <Input
+                      id="s-pass"
+                      type="password"
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
                   </div>
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
