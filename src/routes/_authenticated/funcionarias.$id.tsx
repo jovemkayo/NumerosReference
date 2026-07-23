@@ -2,6 +2,7 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { EmployeeAvatar } from "@/components/EmployeeAvatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,11 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ArrowLeft, Phone, ChevronRight } from "lucide-react";
 import {
+  formatRestrictionCountdown,
   formatPhone,
+  getEffectivePhoneStatus,
   WHATSAPP_LABEL,
   type PhoneStatus,
   type WhatsappType,
 } from "@/lib/phone-utils";
+import { formatDeviceLocation } from "@/lib/device-utils";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/funcionarias/$id")({
   head: () => ({ meta: [{ title: "Colaboradora — Controle WhatsApp" }] }),
@@ -22,6 +27,12 @@ export const Route = createFileRoute("/_authenticated/funcionarias/$id")({
 
 function FuncionariaDetail() {
   const { id } = useParams({ from: "/_authenticated/funcionarias/$id" });
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const empQ = useQuery({
     queryKey: ["employee", id],
@@ -41,7 +52,9 @@ function FuncionariaDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("phone_numbers")
-        .select("id,phone_number,status,whatsapp_type,carrier_id,carriers(name)")
+        .select(
+          "id,phone_number,status,whatsapp_type,carrier_id,device_slot,restriction_ends_at,restriction_under_review,carriers(name),devices(name)",
+        )
         .eq("current_employee_id", id)
         .order("phone_number");
       if (error) throw error;
@@ -71,9 +84,12 @@ function FuncionariaDetail() {
         ) : (
           <>
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg">
-                {empQ.data.name[0]?.toUpperCase()}
-              </div>
+              <EmployeeAvatar
+                name={empQ.data.name}
+                photoPath={empQ.data.photo_path}
+                className="h-12 w-12"
+                fallbackClassName="text-lg"
+              />
               <div>
                 <h1 className="text-2xl font-semibold flex items-center gap-2">
                   {empQ.data.name}
@@ -115,10 +131,22 @@ function FuncionariaDetail() {
                           <div className="font-medium">{formatPhone(n.phone_number)}</div>
                           <div className="text-xs text-muted-foreground truncate">
                             {n.carriers?.name ?? "Sem operadora"} ·{" "}
-                            {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]}
+                            {WHATSAPP_LABEL[n.whatsapp_type as WhatsappType]} ·{" "}
+                            {formatDeviceLocation(n.devices?.name, n.device_slot)}
                           </div>
+                          {n.status === "blocked" && (
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-orange-600">
+                              <span>{formatRestrictionCountdown(n.restriction_ends_at, now)}</span>
+                            </div>
+                          )}
                         </div>
-                        <StatusBadge status={n.status as PhoneStatus} />
+                        <StatusBadge
+                          status={getEffectivePhoneStatus(
+                            n.status as PhoneStatus,
+                            n.restriction_ends_at,
+                            now,
+                          )}
+                        />
                         <ChevronRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
                       </CardContent>
                     </Card>

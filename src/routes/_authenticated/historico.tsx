@@ -37,7 +37,7 @@ function HistoricoPage() {
       const { data, error } = await supabase
         .from("phone_number_history")
         .select(
-          "id,event_type,performed_at,from_status,to_status,reason,phone_number_id,phone_numbers(phone_number),from:employees!from_employee_id(name),to:employees!to_employee_id(name),by:profiles!performed_by(full_name,email)",
+          "id,event_type,performed_at,from_status,to_status,reason,observation,phone_number_id,phone_numbers(phone_number),from:employees!from_employee_id(name),to:employees!to_employee_id(name),by:profiles!performed_by(full_name,email)",
         )
         .order("performed_at", { ascending: false })
         .limit(200);
@@ -157,6 +157,7 @@ function HistoricoPage() {
                         </div>
                       )}
                       {h.reason && <div>Motivo: {h.reason}</div>}
+                      {h.observation && <div>Observações da transferência: {h.observation}</div>}
                       <div>Por: {h.by?.full_name || h.by?.email || "Sistema"}</div>
                     </div>
                   </li>

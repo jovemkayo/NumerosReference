@@ -11,18 +11,51 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Phone, LayoutDashboard, History, Users, Menu } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { LogOut, Phone, LayoutDashboard, History, Users, Smartphone } from "lucide-react";
 import logo from "@/assets/referencerh.png";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationsFloatingButton } from "@/components/NotificationsFloatingButton";
+
+const navItems = [
+  {
+    to: "/dashboard",
+    icon: <LayoutDashboard className="h-4 w-4" />,
+    mobileIcon: <LayoutDashboard className="h-5 w-5" />,
+    label: "Dashboard",
+  },
+  {
+    to: "/numeros",
+    icon: <Phone className="h-4 w-4" />,
+    mobileIcon: <Phone className="h-5 w-5" />,
+    label: "Números",
+  },
+  {
+    to: "/funcionarias",
+    icon: <Users className="h-4 w-4" />,
+    mobileIcon: <Users className="h-5 w-5" />,
+    label: "Colaboradoras",
+  },
+  {
+    to: "/dispositivos",
+    icon: <Smartphone className="h-4 w-4" />,
+    mobileIcon: <Smartphone className="h-5 w-5" />,
+    label: "Dispositivos",
+  },
+  {
+    to: "/historico",
+    icon: <History className="h-4 w-4" />,
+    mobileIcon: <History className="h-5 w-5" />,
+    label: "Histórico",
+  },
+] as const;
 
 export function AppHeader() {
   const navigate = useNavigate();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, isAdmin } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
@@ -43,86 +76,89 @@ export function AppHeader() {
     "?";
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur relative">
-      <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between gap-4">
-        <Link to="/dashboard" className="flex items-center">
-          <img src={logo} alt="Reference RH" className="h-10 w-auto" />
-        </Link>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="md:hidden"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-        <nav className="hidden md:flex items-center gap-1">
-          <NavItem
-            to="/dashboard"
-            icon={<LayoutDashboard className="h-4 w-4" />}
-            label="Dashboard"
-          />
-          <NavItem to="/numeros" icon={<Phone className="h-4 w-4" />} label="Números" />
-          <NavItem to="/funcionarias" icon={<Users className="h-4 w-4" />} label="Colaboradoras" />
-          <NavItem to="/historico" icon={<History className="h-4 w-4" />} label="Histórico" />
-        </nav>
-        {mobileMenuOpen && (
-          <div className="absolute top-14 left-0 right-0 bg-background border-b p-4 md:hidden">
-            <div className="flex flex-col gap-2">
-              <NavItem
-                to="/dashboard"
-                icon={<LayoutDashboard className="h-4 w-4" />}
-                label="Dashboard"
-              />
-              <NavItem to="/numeros" icon={<Phone className="h-4 w-4" />} label="Números" />
-              <NavItem
-                to="/funcionarias"
-                icon={<Users className="h-4 w-4" />}
-                label="Colaboradoras"
-              />
-              <NavItem to="/historico" icon={<History className="h-4 w-4" />} label="Histórico" />
-            </div>
+    <>
+      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
+        <div className="mx-auto max-w-7xl px-4 h-14 flex items-center justify-between gap-4">
+          <Link to="/dashboard" className="flex items-center">
+            <img src={logo} alt="Reference RH" className="h-10 w-auto" />
+          </Link>
+          <nav className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => (
+              <NavItem key={item.to} to={item.to} icon={item.icon} label={item.label} />
+            ))}
+          </nav>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2 px-2">
+                <Avatar className="h-7 w-7">
+                  <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                </Avatar>
+                {isAdmin && (
+                  <Badge variant="secondary" className="hidden sm:inline">
+                    Admin
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="text-sm font-medium truncate">
+                  {user?.user_metadata?.full_name || user?.email}
+                </div>
+                <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" /> Sair
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
+      <TooltipProvider delayDuration={150}>
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-background/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
+          <div className="grid h-16 grid-cols-5 px-1">
+            {navItems.map((item) => (
+              <MobileNavItem key={item.to} to={item.to} icon={item.mobileIcon} label={item.label} />
+            ))}
           </div>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="gap-2 px-2">
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-              </Avatar>
-              {isAdmin && (
-                <Badge variant="secondary" className="hidden sm:inline">
-                  Admin
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="text-sm font-medium truncate">
-                {user?.user_metadata?.full_name || user?.email}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" /> Sair
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </header>
+        </nav>
+      </TooltipProvider>
+      <NotificationsFloatingButton />
+      <div className="h-16 md:hidden" aria-hidden="true" />
+    </>
   );
 }
+
 function NavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
   return (
     <Link
       to={to}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      className="relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       activeProps={{ className: "bg-accent text-foreground" }}
     >
       {icon}
       {label}
     </Link>
+  );
+}
+
+function MobileNavItem({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          to={to}
+          aria-label={label}
+          title={label}
+          className="mx-auto my-2 flex h-12 w-12 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          activeProps={{ className: "bg-accent text-foreground" }}
+        >
+          {icon}
+          <span className="sr-only">{label}</span>
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
   );
 }

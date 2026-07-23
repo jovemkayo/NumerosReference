@@ -2,12 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { EmployeeAvatar } from "@/components/EmployeeAvatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Phone, AlertTriangle, PowerOff, Ban, Users, ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { STATUS_LABEL } from "@/lib/phone-utils";
+import { STATUS_LABEL, getEffectivePhoneStatus, type PhoneStatus } from "@/lib/phone-utils";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -28,7 +29,10 @@ function DashboardPage() {
   const totalsQ = useQuery({
     queryKey: ["dashboard-totals"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("phone_numbers").select("status");
+      const now = new Date();
+      const { data, error } = await supabase
+        .from("phone_numbers")
+        .select("status,restriction_ends_at");
       if (error) throw error;
       const counts = {
         total: data.length,
@@ -38,10 +42,11 @@ function DashboardPage() {
         permanently_banned: 0,
       };
       for (const r of data) {
-        if (r.status === "working") counts.working++;
-        else if (r.status == "blocked") counts.restricted++;
-        else if (r.status === "deactivated") counts.deactivated++;
-        else if (r.status === "permanently_banned") counts.permanently_banned++;
+        const status = getEffectivePhoneStatus(r.status as PhoneStatus, r.restriction_ends_at, now);
+        if (status === "working") counts.working++;
+        else if (status == "blocked") counts.restricted++;
+        else if (status === "deactivated") counts.deactivated++;
+        else if (status === "permanently_banned") counts.permanently_banned++;
       }
       return counts;
     },
@@ -51,8 +56,8 @@ function DashboardPage() {
     queryKey: ["dashboard-employees"],
     queryFn: async () => {
       const [{ data: emps, error: e1 }, { data: nums, error: e2 }] = await Promise.all([
-        supabase.from("employees").select("id,name,is_active").order("name"),
-        supabase.from("phone_numbers").select("current_employee_id,status"),
+        supabase.from("employees").select("id,name,is_active,photo_path").order("name"),
+        supabase.from("phone_numbers").select("current_employee_id,status,restriction_ends_at"),
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
@@ -71,14 +76,16 @@ function DashboardPage() {
         permanently_banned: 0,
       });
       const byEmp = new Map<string, S>();
+      const now = new Date();
       for (const n of nums ?? []) {
         if (!n.current_employee_id) continue;
         const acc = byEmp.get(n.current_employee_id) ?? empty();
+        const status = getEffectivePhoneStatus(n.status as PhoneStatus, n.restriction_ends_at, now);
         acc.total++;
-        if (n.status === "working") acc.working++;
-        else if (n.status === "blocked") acc.restricted++;
-        else if (n.status === "deactivated") acc.deactivated++;
-        else if (n.status === "permanently_banned") acc.permanently_banned++;
+        if (status === "working") acc.working++;
+        else if (status === "blocked") acc.restricted++;
+        else if (status === "deactivated") acc.deactivated++;
+        else if (status === "permanently_banned") acc.permanently_banned++;
         byEmp.set(n.current_employee_id, acc);
       }
       return (emps ?? []).map((e) => ({
@@ -172,9 +179,7 @@ function DashboardPage() {
               <Link key={e.id} to="/funcionarias/$id" params={{ id: e.id }}>
                 <Card className="hover:border-primary/50 transition-colors">
                   <CardContent className="p-4 flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
-                      {e.name[0]?.toUpperCase()}
-                    </div>
+                    <EmployeeAvatar name={e.name} photoPath={e.photo_path} className="h-10 w-10" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="font-medium truncate">{e.name}</div>

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { EmployeeAvatar } from "@/components/EmployeeAvatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Plus, Search, Pencil, Power, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/funcionarias/")({
@@ -43,7 +44,11 @@ type Employee = {
   name: string;
   is_active: boolean;
   notes: string | null;
+  photo_path: string | null;
 };
+
+const EMPLOYEE_PHOTO_BUCKET = "employee-photos";
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024;
 
 function FuncionariasPage() {
   const qc = useQueryClient();
@@ -58,7 +63,7 @@ function FuncionariasPage() {
     queryKey: ["employees"],
     queryFn: async () => {
       const [{ data: emps, error }, { data: nums, error: numsError }] = await Promise.all([
-        supabase.from("employees").select("id,name,is_active,notes").order("name"),
+        supabase.from("employees").select("id,name,is_active,notes,photo_path").order("name"),
         supabase.from("phone_numbers").select("current_employee_id"),
       ]);
 
@@ -183,9 +188,7 @@ function FuncionariasPage() {
                     params={{ id: e.id }}
                     className="flex-1 min-w-0 flex items-center gap-3"
                   >
-                    <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
-                      {e.name[0]?.toUpperCase()}
-                    </div>
+                    <EmployeeAvatar name={e.name} photoPath={e.photo_path} className="h-9 w-9" />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate flex items-center gap-2">
                         {e.name}
@@ -201,25 +204,29 @@ function FuncionariasPage() {
                     </div>
                   </Link>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setEditing(e);
-                        setDialogOpen(true);
-                      }}
-                      title="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setToggleTarget(e)}
-                      title={e.is_active ? "Desativar" : "Reativar"}
-                    >
-                      <Power className={`h-4 w-4 ${e.is_active ? "" : "text-emerald-600"}`} />
-                    </Button>
+                    {isAdmin && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditing(e);
+                            setDialogOpen(true);
+                          }}
+                          title="Editar"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setToggleTarget(e)}
+                          title={e.is_active ? "Desativar" : "Reativar"}
+                        >
+                          <Power className={`h-4 w-4 ${e.is_active ? "" : "text-emerald-600"}`} />
+                        </Button>
+                      </>
+                    )}
                     <Link to="/funcionarias/$id" params={{ id: e.id }} className="hidden sm:flex">
                       <Button variant="ghost" size="icon">
                         <ChevronRight className="h-4 w-4" />
@@ -280,43 +287,116 @@ function EmployeeDialog({
 }) {
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Reset when dialog opens
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setName(employee?.name ?? "");
       setNotes(employee?.notes ?? "");
+      setPhotoFile(null);
+      setPhotoPreviewUrl(null);
+      setRemovePhoto(false);
     }
   }, [open, employee]);
+
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoPreviewUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(photoFile);
+    setPhotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photoFile]);
+
+  async function uploadEmployeePhoto(employeeId: string, file: File) {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Selecione um arquivo de imagem.");
+    }
+
+    if (file.size > MAX_PHOTO_SIZE) {
+      throw new Error("A foto precisa ter no máximo 5 MB.");
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const safeExtension = extension.replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${employeeId}/${Date.now()}.${safeExtension}`;
+    const { error } = await supabase.storage.from(EMPLOYEE_PHOTO_BUCKET).upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+
+    if (error) throw error;
+    return path;
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
-    const payload = { name: name.trim(), notes: notes.trim() || null };
-    const { error } = employee
-      ? await supabase.from("employees").update(payload).eq("id", employee.id)
-      : await supabase.from("employees").insert(payload);
-    setSaving(false);
-    if (error) {
+    try {
+      const payload = {
+        name: name.trim(),
+        notes: notes.trim() || null,
+        ...(removePhoto ? { photo_path: null } : {}),
+      };
+      const savedEmployee = employee
+        ? await supabase
+            .from("employees")
+            .update(payload)
+            .eq("id", employee.id)
+            .select("id")
+            .single()
+        : await supabase.from("employees").insert(payload).select("id").single();
+
+      if (savedEmployee.error) throw savedEmployee.error;
+
+      const previousPhotoPath = employee?.photo_path ?? null;
+
+      if (photoFile) {
+        const photoPath = await uploadEmployeePhoto(savedEmployee.data.id, photoFile);
+        const { error: photoError } = await supabase
+          .from("employees")
+          .update({ photo_path: photoPath })
+          .eq("id", savedEmployee.data.id);
+
+        if (photoError) throw photoError;
+      }
+
+      if (previousPhotoPath && (photoFile || removePhoto)) {
+        await supabase.storage.from(EMPLOYEE_PHOTO_BUCKET).remove([previousPhotoPath]);
+      }
+
+      logInfo("Employee saved", {
+        action: employee ? "employee.update" : "employee.create",
+        employeeId: savedEmployee.data.id,
+        hasPhotoUpload: Boolean(photoFile),
+        removePhoto,
+      });
+
+      toast.success(employee ? "Colaboradora atualizada." : "Colaboradora cadastrada.");
+      onSaved();
+      onOpenChange(false);
+    } catch (error) {
       logError("Failed to save employee", {
         action: employee ? "employee.update" : "employee.create",
         employeeId: employee?.id,
         error,
       });
 
-      return toast.error(error.message);
+      const message = error instanceof Error ? error.message : "Não foi possível salvar.";
+      toast.error(
+        message.includes("bucket") || message.includes("policy") || message.includes("permission")
+          ? `${message}. Verifique se a migration das fotos foi aplicada no Supabase.`
+          : message,
+      );
+    } finally {
+      setSaving(false);
     }
-
-    logInfo("Employee saved", {
-      action: employee ? "employee.update" : "employee.create",
-      employeeId: employee?.id,
-    });
-
-    toast.success(employee ? "Colaboradora atualizada." : "Colaboradora cadastrada.");
-    onSaved();
-    onOpenChange(false);
   }
 
   return (
@@ -344,6 +424,55 @@ function EmployeeDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="e-photo">Foto (opcional)</Label>
+            <div className="flex items-center gap-3">
+              {photoPreviewUrl ? (
+                <img
+                  src={photoPreviewUrl}
+                  alt="Prévia da foto"
+                  className="h-14 w-14 rounded-full object-cover"
+                />
+              ) : (
+                <EmployeeAvatar
+                  name={name || employee?.name || "?"}
+                  photoPath={removePhoto ? null : employee?.photo_path}
+                  className="h-14 w-14"
+                />
+              )}
+              <div className="min-w-0 flex-1 space-y-2">
+                <Input
+                  id="e-photo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={(event) => {
+                    setPhotoFile(event.target.files?.[0] ?? null);
+                    setRemovePhoto(false);
+                  }}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {photoFile && (
+                    <span className="text-xs text-muted-foreground truncate">
+                      Nova foto: {photoFile.name}
+                    </span>
+                  )}
+                  {employee?.photo_path && !removePhoto && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setRemovePhoto(true);
+                      }}
+                    >
+                      Remover foto
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

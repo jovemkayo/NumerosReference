@@ -13,6 +13,8 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedHistoricoRouteImport } from './routes/_authenticated/historico'
+import { Route as AuthenticatedEntradaRouteImport } from './routes/_authenticated/entrada'
+import { Route as AuthenticatedDispositivosRouteImport } from './routes/_authenticated/dispositivos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedNumerosIndexRouteImport } from './routes/_authenticated/numeros.index'
 import { Route as AuthenticatedFuncionariasIndexRouteImport } from './routes/_authenticated/funcionarias.index'
@@ -38,6 +40,17 @@ const AuthenticatedHistoricoRoute = AuthenticatedHistoricoRouteImport.update({
   path: '/historico',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedEntradaRoute = AuthenticatedEntradaRouteImport.update({
+  id: '/entrada',
+  path: '/entrada',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDispositivosRoute =
+  AuthenticatedDispositivosRouteImport.update({
+    id: '/dispositivos',
+    path: '/dispositivos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -71,6 +84,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dispositivos': typeof AuthenticatedDispositivosRoute
+  '/entrada': typeof AuthenticatedEntradaRoute
   '/historico': typeof AuthenticatedHistoricoRoute
   '/funcionarias/$id': typeof AuthenticatedFuncionariasIdRoute
   '/numeros/$id': typeof AuthenticatedNumerosIdRoute
@@ -81,6 +96,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dispositivos': typeof AuthenticatedDispositivosRoute
+  '/entrada': typeof AuthenticatedEntradaRoute
   '/historico': typeof AuthenticatedHistoricoRoute
   '/funcionarias/$id': typeof AuthenticatedFuncionariasIdRoute
   '/numeros/$id': typeof AuthenticatedNumerosIdRoute
@@ -93,6 +110,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dispositivos': typeof AuthenticatedDispositivosRoute
+  '/_authenticated/entrada': typeof AuthenticatedEntradaRoute
   '/_authenticated/historico': typeof AuthenticatedHistoricoRoute
   '/_authenticated/funcionarias/$id': typeof AuthenticatedFuncionariasIdRoute
   '/_authenticated/numeros/$id': typeof AuthenticatedNumerosIdRoute
@@ -105,6 +124,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/dispositivos'
+    | '/entrada'
     | '/historico'
     | '/funcionarias/$id'
     | '/numeros/$id'
@@ -115,6 +136,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/dispositivos'
+    | '/entrada'
     | '/historico'
     | '/funcionarias/$id'
     | '/numeros/$id'
@@ -126,6 +149,8 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dispositivos'
+    | '/_authenticated/entrada'
     | '/_authenticated/historico'
     | '/_authenticated/funcionarias/$id'
     | '/_authenticated/numeros/$id'
@@ -169,6 +194,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoricoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/entrada': {
+      id: '/_authenticated/entrada'
+      path: '/entrada'
+      fullPath: '/entrada'
+      preLoaderRoute: typeof AuthenticatedEntradaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dispositivos': {
+      id: '/_authenticated/dispositivos'
+      path: '/dispositivos'
+      fullPath: '/dispositivos'
+      preLoaderRoute: typeof AuthenticatedDispositivosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -209,6 +248,8 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDispositivosRoute: typeof AuthenticatedDispositivosRoute
+  AuthenticatedEntradaRoute: typeof AuthenticatedEntradaRoute
   AuthenticatedHistoricoRoute: typeof AuthenticatedHistoricoRoute
   AuthenticatedFuncionariasIdRoute: typeof AuthenticatedFuncionariasIdRoute
   AuthenticatedNumerosIdRoute: typeof AuthenticatedNumerosIdRoute
@@ -218,6 +259,8 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDispositivosRoute: AuthenticatedDispositivosRoute,
+  AuthenticatedEntradaRoute: AuthenticatedEntradaRoute,
   AuthenticatedHistoricoRoute: AuthenticatedHistoricoRoute,
   AuthenticatedFuncionariasIdRoute: AuthenticatedFuncionariasIdRoute,
   AuthenticatedNumerosIdRoute: AuthenticatedNumerosIdRoute,

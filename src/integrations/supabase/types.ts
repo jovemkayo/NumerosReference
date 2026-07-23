@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      devices: {
+        Row: {
+          chip_capacity: number
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          chip_capacity?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          chip_capacity?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           created_at: string
@@ -46,6 +73,7 @@ export type Database = {
           is_active: boolean
           name: string
           notes: string | null
+          photo_path: string | null
           updated_at: string
         }
         Insert: {
@@ -55,6 +83,7 @@ export type Database = {
           is_active?: boolean
           name: string
           notes?: string | null
+          photo_path?: string | null
           updated_at?: string
         }
         Update: {
@@ -64,6 +93,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           notes?: string | null
+          photo_path?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -132,6 +162,54 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          metadata: Json
+          phone_number_id: string | null
+          read_at: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json
+          phone_number_id?: string | null
+          read_at?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          phone_number_id?: string | null
+          read_at?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_number_stats"
+            referencedColumns: ["phone_number_id"]
+          },
+          {
+            foreignKeyName: "notifications_phone_number_id_fkey"
+            columns: ["phone_number_id"]
+            isOneToOne: false
+            referencedRelation: "phone_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       phone_number_history: {
         Row: {
           changed_fields: Json | null
@@ -139,6 +217,7 @@ export type Database = {
           from_employee_id: string | null
           from_status: Database["public"]["Enums"]["phone_status"] | null
           id: string
+          observation: string | null
           performed_at: string
           performed_by: string | null
           phone_number_id: string
@@ -152,6 +231,7 @@ export type Database = {
           from_employee_id?: string | null
           from_status?: Database["public"]["Enums"]["phone_status"] | null
           id?: string
+          observation?: string | null
           performed_at?: string
           performed_by?: string | null
           phone_number_id: string
@@ -165,6 +245,7 @@ export type Database = {
           from_employee_id?: string | null
           from_status?: Database["public"]["Enums"]["phone_status"] | null
           id?: string
+          observation?: string | null
           performed_at?: string
           performed_by?: string | null
           phone_number_id?: string
@@ -221,6 +302,8 @@ export type Database = {
           created_by: string | null
           current_employee_id: string | null
           deactivated_at: string | null
+          device_id: string | null
+          device_slot: number | null
           id: string
           observations: string | null
           phone_number: string
@@ -231,6 +314,7 @@ export type Database = {
           restricted_at: string | null
           restriction_duration_days: number | null
           restriction_ends_at: string | null
+          restriction_under_review: boolean
           status: Database["public"]["Enums"]["phone_status"]
           updated_at: string
           updated_by: string | null
@@ -246,6 +330,8 @@ export type Database = {
           created_by?: string | null
           current_employee_id?: string | null
           deactivated_at?: string | null
+          device_id?: string | null
+          device_slot?: number | null
           id?: string
           observations?: string | null
           phone_number: string
@@ -256,6 +342,7 @@ export type Database = {
           restricted_at?: string | null
           restriction_duration_days?: number | null
           restriction_ends_at?: string | null
+          restriction_under_review?: boolean
           status?: Database["public"]["Enums"]["phone_status"]
           updated_at?: string
           updated_by?: string | null
@@ -270,6 +357,8 @@ export type Database = {
           created_by?: string | null
           current_employee_id?: string | null
           deactivated_at?: string | null
+          device_id?: string | null
+          device_slot?: number | null
           id?: string
           observations?: string | null
           phone_number?: string
@@ -281,6 +370,7 @@ export type Database = {
           restricted_at?: string | null
           restriction_duration_days?: number | null
           restriction_ends_at?: string | null
+          restriction_under_review?: boolean
           status?: Database["public"]["Enums"]["phone_status"]
           updated_at?: string
           updated_by?: string | null
@@ -306,6 +396,13 @@ export type Database = {
             columns: ["current_employee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phone_numbers_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
             referencedColumns: ["id"]
           },
           {

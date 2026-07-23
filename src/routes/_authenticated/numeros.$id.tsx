@@ -1,7 +1,8 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { RestrictionDateTimePicker } from "@/components/RestrictionDateTimePicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,28 +38,45 @@ import {
   STATUS_DOT,
   formatPhone,
   formatDateTime,
+  formatRestrictionCountdown,
+  getEffectivePhoneStatus,
+  parseBrazilDateTimeInput,
+  toBrazilDateTimeInputValue,
   type PhoneStatus,
   type WhatsappType,
   type HistoryEvent,
 } from "@/lib/phone-utils";
+import {
+  formatDeviceLocation,
+  getFirstAvailableSlot,
+  isDeviceSlotTaken,
+  type DeviceOccupancy,
+  type DeviceOption,
+} from "@/lib/device-utils";
+import { createRestrictionExpiredNotifications } from "@/lib/restriction-notifications";
 type PhoneNumberDetail = {
   id: string;
   phone_number?: string | null;
   carrier_id?: string | null;
   whatsapp_type?: string | null;
   chip_location?: string | null;
+  device_id?: string | null;
+  device_slot?: number | null;
   observations?: string | null;
   current_employee_id?: string | null;
   status?: string | null;
   employees?: { name?: string | null } | null;
   prev?: { name?: string | null } | null;
   carriers?: { name?: string | null } | null;
+  devices?: { name?: string | null } | null;
   registered_at?: string | null;
   activated_at?: string | null;
   restricted_at?: string | null;
   blocked_at?: string | null;
+  block_reason?: string | null;
   restriction_duration_days?: number | null;
   restriction_ends_at?: string | null;
+  restriction_under_review?: boolean | null;
   deactivated_at?: string | null;
 };
 export const Route = createFileRoute("/_authenticated/numeros/$id")({
@@ -73,13 +91,19 @@ function NumeroDetail() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState("all");
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
   const numQ = useQuery({
     queryKey: ["number", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("phone_numbers")
         .select(
-          "*,employees!current_employee_id(name),prev:employees!previous_employee_id(name),carriers(name)",
+          "*,employees!current_employee_id(name),prev:employees!previous_employee_id(name),carriers(name),devices(name)",
         )
         .eq("id", id)
         .maybeSingle();
@@ -137,15 +161,98 @@ function NumeroDetail() {
       return data;
     },
   });
+  const devicesQ = useQuery({
+    queryKey: ["devices-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("devices")
+        .select("id,name,chip_capacity,is_active")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+  const deviceOccupancyQ = useQuery({
+    queryKey: ["phone-device-occupancy"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("phone_numbers")
+        .select("id,device_id,device_slot");
+      if (error) throw error;
+      return data;
+    },
+  });
   function refresh() {
     qc.invalidateQueries({ queryKey: ["number", id] });
     qc.invalidateQueries({ queryKey: ["number-stats", id] });
     qc.invalidateQueries({ queryKey: ["number-history", id] });
+    qc.invalidateQueries({ queryKey: ["phone-device-occupancy"] });
     qc.invalidateQueries({ queryKey: ["numbers"] });
     qc.invalidateQueries({ queryKey: ["dashboard-totals"] });
     qc.invalidateQueries({ queryKey: ["dashboard-employees"] });
     qc.invalidateQueries({ queryKey: ["employee-numbers"] });
   }
+
+  useEffect(() => {
+    const number = numQ.data;
+    if (
+      !isAdmin ||
+      !number ||
+      number.status !== "blocked" ||
+      !number.restriction_ends_at ||
+      new Date(number.restriction_ends_at).getTime() > now.getTime()
+    ) {
+      return;
+    }
+
+    void createRestrictionExpiredNotifications([
+      {
+        id: number.id,
+        phone_number: number.phone_number ?? "",
+        restriction_ends_at: number.restriction_ends_at,
+        employees: number.employees,
+      },
+    ]).then((notificationsCreated) => {
+      if (!notificationsCreated) return;
+
+      return supabase
+        .from("phone_numbers")
+        .update({
+          status: "working",
+          restricted_at: null,
+          restriction_duration_days: null,
+          restriction_ends_at: null,
+          restriction_under_review: false,
+        })
+        .eq("id", number.id)
+        .then(({ error }) => {
+          if (error) {
+            logError("Failed to release expired restriction", {
+              action: "phone_number.restriction.release_expired",
+              phoneNumberId: number.id,
+              error,
+            });
+            return;
+          }
+
+          logInfo("Expired restriction released", {
+            action: "phone_number.restriction.release_expired",
+            phoneNumberId: number.id,
+          });
+
+          qc.invalidateQueries({ queryKey: ["number", id] });
+          qc.invalidateQueries({ queryKey: ["number-stats", id] });
+          qc.invalidateQueries({ queryKey: ["number-history", id] });
+          qc.invalidateQueries({ queryKey: ["numbers"] });
+          qc.invalidateQueries({ queryKey: ["dashboard-totals"] });
+          qc.invalidateQueries({ queryKey: ["dashboard-employees"] });
+          qc.invalidateQueries({ queryKey: ["employee-numbers"] });
+          qc.invalidateQueries({ queryKey: ["notifications"] });
+        });
+    });
+  }, [id, isAdmin, numQ.data, now, qc]);
+
   if (numQ.isLoading) {
     return (
       <div className="min-h-screen bg-muted/20">
@@ -171,7 +278,15 @@ function NumeroDetail() {
     );
   }
   const n = numQ.data;
+  const effectiveStatus = getEffectivePhoneStatus(
+    n.status as PhoneStatus,
+    n.restriction_ends_at,
+    now,
+  );
   const stats = statsQ.data;
+  const latestTransferObservation =
+    historyQ.data?.find((h) => h.event_type === "transferred" && h.observation)?.observation ??
+    null;
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -193,7 +308,7 @@ function NumeroDetail() {
                 onClick={() => setStatusOpen(true)}
                 className="rounded-md transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <StatusBadge status={n.status as PhoneStatus} />
+                <StatusBadge status={effectiveStatus} />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
@@ -220,28 +335,39 @@ function NumeroDetail() {
             <CardHeader>
               <CardTitle className="text-base">Informações</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <Info label="Responsável atual" value={n.employees?.name ?? "—"} />
-              <Info label="Responsável anterior" value={n.prev?.name ?? "—"} />
-              <Info label="Cadastro" value={formatDateTime(n.registered_at)} />
-              <Info label="Ativação" value={formatDateTime(n.activated_at)} />
-              <Info label="Restrição" value={formatDateTime(n.restricted_at ?? n.blocked_at)} />
-              <Info label="Onde está o chip?" value={n.chip_location || "—"} />
-              {n.status === "blocked" && (
-                <>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div className="space-y-3">
+                <Info label="Responsável atual" value={n.employees?.name ?? "—"} />
+                <Info label="Cadastro" value={formatDateTime(n.registered_at)} />
+                <Info label="Restrição" value={formatDateTime(n.restricted_at ?? n.blocked_at)} />
+                {n.status === "blocked" && (
                   <Info
-                    label="Duração da restrição"
-                    value={
-                      n.restriction_duration_days ? `${n.restriction_duration_days} dia(s)` : "—"
-                    }
+                    label="Tempo restante"
+                    value={formatRestrictionCountdown(n.restriction_ends_at, now)}
                   />
+                )}
+                <Info label="Desativação" value={formatDateTime(n.deactivated_at)} />
+                <div>
+                  <div className="text-xs text-muted-foreground">Observações</div>
+                  <div className="mt-0.5 whitespace-pre-wrap">{n.observations || "—"}</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Info label="Responsável anterior" value={n.prev?.name ?? "—"} />
+                <Info label="Ativação" value={formatDateTime(n.activated_at)} />
+                <Info
+                  label="Dispositivo"
+                  value={formatDeviceLocation(n.devices?.name, n.device_slot)}
+                />
+                <div>
+                  <div className="text-xs text-muted-foreground">Observações da transferência</div>
+                  <div className="mt-0.5 whitespace-pre-wrap">
+                    {latestTransferObservation || "—"}
+                  </div>
+                </div>
+                {n.status === "blocked" && (
                   <Info label="Fim da restrição" value={formatDateTime(n.restriction_ends_at)} />
-                </>
-              )}
-              <Info label="Desativação" value={formatDateTime(n.deactivated_at)} />
-              <div className="col-span-2">
-                <div className="text-xs text-muted-foreground">Observações</div>
-                <div className="mt-0.5 whitespace-pre-wrap">{n.observations || "—"}</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -343,6 +469,7 @@ function NumeroDetail() {
                           </div>
                         )}
                         {h.reason && <div>Motivo: {h.reason}</div>}
+                        {h.observation && <div>Observações da transferência: {h.observation}</div>}
                         <div>Por: {h.by?.full_name || h.by?.email || "Sistema"}</div>
                       </div>
                     </li>
@@ -359,6 +486,8 @@ function NumeroDetail() {
         number={n}
         employees={employeesQ.data ?? []}
         carriers={carriersQ.data ?? []}
+        devices={devicesQ.data ?? []}
+        occupiedNumbers={deviceOccupancyQ.data ?? []}
         onSaved={refresh}
       />
       <TransferDialog
@@ -397,6 +526,8 @@ function EditNumberDialog({
   number,
   employees,
   carriers,
+  devices,
+  occupiedNumbers,
   onSaved,
 }: {
   open: boolean;
@@ -404,12 +535,15 @@ function EditNumberDialog({
   number: PhoneNumberDetail;
   employees: { id: string; name: string }[];
   carriers: { id: string; name: string }[];
+  devices: DeviceOption[];
+  occupiedNumbers: DeviceOccupancy[];
   onSaved: () => void;
 }) {
   const [phone, setPhone] = useState("");
   const [carrierId, setCarrierId] = useState("");
   const [whatsapp, setWhatsapp] = useState<WhatsappType>("business");
-  const [chipLocation, setChipLocation] = useState("");
+  const [deviceId, setDeviceId] = useState("none");
+  const [deviceSlot, setDeviceSlot] = useState("none");
   const [observations, setObservations] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -418,10 +552,31 @@ function EditNumberDialog({
       setPhone(number.phone_number ?? "");
       setCarrierId(number.carrier_id ?? "");
       setWhatsapp((number.whatsapp_type as WhatsappType) ?? "business");
-      setChipLocation(number.chip_location ?? "");
+      setDeviceId(number.device_id ?? "none");
+      setDeviceSlot(number.device_slot ? String(number.device_slot) : "none");
       setObservations(number.observations ?? "");
     }
   }, [open, number]);
+
+  const selectedDevice = devices.find((device) => device.id === deviceId);
+
+  function handleDeviceChange(value: string) {
+    setDeviceId(value);
+    if (value === "none") {
+      setDeviceSlot("none");
+      return;
+    }
+
+    const device = devices.find((item) => item.id === value);
+    setDeviceSlot(getFirstAvailableSlot(occupiedNumbers, device, number.id));
+  }
+
+  function handleDeviceSlotChange(value: string) {
+    setDeviceSlot(value);
+    if (value === "none") {
+      setDeviceId("none");
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -432,7 +587,9 @@ function EditNumberDialog({
         phone_number: phone.replace(/\D/g, ""),
         carrier_id: carrierId || null,
         whatsapp_type: whatsapp,
-        chip_location: chipLocation.trim() || null,
+        device_id: deviceId === "none" || deviceSlot === "none" ? null : deviceId,
+        device_slot: deviceId === "none" || deviceSlot === "none" ? null : Number(deviceSlot),
+        chip_location: null,
         observations: observations.trim() || null,
       })
       .eq("id", number.id);
@@ -498,12 +655,49 @@ function EditNumberDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Onde está o chip?</Label>
-            <Input
-              value={chipLocation}
-              onChange={(e) => setChipLocation(e.target.value)}
-              placeholder="Ex.: Aparelho MARIANA 01"
-            />
+            <Label>Dispositivo</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px] gap-2">
+              <Select value={deviceId} onValueChange={handleDeviceChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o aparelho" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem chip</SelectItem>
+                  {devices.map((device) => (
+                    <SelectItem key={device.id} value={device.id}>
+                      {device.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={deviceSlot}
+                onValueChange={handleDeviceSlotChange}
+                disabled={deviceId === "none"}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem chip</SelectItem>
+                  {[1, 2].map((slot) => {
+                    const disabled =
+                      !selectedDevice ||
+                      slot > selectedDevice.chip_capacity ||
+                      isDeviceSlotTaken(occupiedNumbers, selectedDevice.id, slot, number.id);
+
+                    return (
+                      <SelectItem key={slot} value={String(slot)} disabled={disabled}>
+                        Chip {slot}
+                        {disabled && selectedDevice && slot <= selectedDevice.chip_capacity
+                          ? " - ocupado"
+                          : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Observações</Label>
@@ -542,10 +736,14 @@ function TransferDialog({
   onSaved: () => void;
 }) {
   const [target, setTarget] = useState<string>("none");
+  const [observation, setObservation] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setTarget("none");
+    if (open) {
+      setTarget("none");
+      setObservation("");
+    }
   }, [open]);
 
   async function handleTransfer() {
@@ -553,12 +751,13 @@ function TransferDialog({
       return toast.error("Selecione uma colaboradora diferente.");
     }
     setSaving(true);
+    const transferObservation = observation.trim();
     const { error } = await supabase
       .from("phone_numbers")
       .update({ current_employee_id: target === "none" ? null : target })
       .eq("id", number.id);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       logError("Failed to transfer phone number", {
         action: "phone_number.transfer",
         phoneNumberId: number.id,
@@ -569,10 +768,53 @@ function TransferDialog({
       return toast.error(error.message);
     }
 
+    if (transferObservation) {
+      const { data: latestTransfer, error: latestTransferError } = await supabase
+        .from("phone_number_history")
+        .select("id")
+        .eq("phone_number_id", number.id)
+        .eq("event_type", "transferred")
+        .order("performed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestTransferError) {
+        setSaving(false);
+        logError("Failed to find transfer history entry", {
+          action: "phone_number.transfer_observation.lookup",
+          phoneNumberId: number.id,
+          error: latestTransferError,
+        });
+
+        return toast.error(latestTransferError.message);
+      }
+
+      if (latestTransfer?.id) {
+        const { error: observationError } = await supabase
+          .from("phone_number_history")
+          .update({ observation: transferObservation })
+          .eq("id", latestTransfer.id);
+
+        if (observationError) {
+          setSaving(false);
+          logError("Failed to save transfer observation", {
+            action: "phone_number.transfer_observation.update",
+            phoneNumberId: number.id,
+            historyId: latestTransfer.id,
+            error: observationError,
+          });
+
+          return toast.error(observationError.message);
+        }
+      }
+    }
+
+    setSaving(false);
     logInfo("Phone number transferred", {
       action: "phone_number.transfer",
       phoneNumberId: number.id,
       targetEmployeeId: target === "none" ? null : target,
+      hasObservation: Boolean(transferObservation),
     });
 
     toast.success("Transferência registrada.");
@@ -606,6 +848,15 @@ function TransferDialog({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-1.5">
+          <Label>Observações da transferência</Label>
+          <Textarea
+            rows={3}
+            value={observation}
+            onChange={(e) => setObservation(e.target.value)}
+            placeholder="Ex.: Chip transferido porque a colaboradora mudou de aparelho."
+          />
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
@@ -632,57 +883,47 @@ function StatusDialog({
 }) {
   const [status, setStatus] = useState<PhoneStatus>("working");
   const [reason, setReason] = useState("");
-  const [duration, setDuration] = useState<"1" | "7">("1");
+  const [restrictionEndsAt, setRestrictionEndsAt] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const [restrictionDate, setRestrictionDate] = useState("");
-  const [restrictionTime, setRestrictionTime] = useState("");
-
-  const now = new Date();
 
   useEffect(() => {
     if (open) {
       setStatus(number.status as PhoneStatus);
-      setReason("");
-      setDuration("1");
-
-      const now = new Date();
-
-      setRestrictionDate(now.toISOString().slice(0, 10));
-
-      setRestrictionTime(
-        now.toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-      );
+      setReason(number.block_reason ?? "");
+      setRestrictionEndsAt(toBrazilDateTimeInputValue(number.restriction_ends_at));
     }
   }, [open, number]);
 
   async function handleSave() {
     if (status === number.status && status !== "blocked") return onOpenChange(false);
-    setSaving(true);
     const payload: {
       status: PhoneStatus;
       block_reason?: string | null;
       restricted_at?: string | null;
       restriction_duration_days?: number | null;
       restriction_ends_at?: string | null;
+      restriction_under_review?: boolean;
     } = { status };
     if (status === "blocked") {
-      const startedAt = new Date(`${restrictionDate}T${restrictionTime}:00`);
-      const days = Number(duration);
-      const endsAt = new Date(startedAt.getTime() + days * 24 * 60 * 60 * 1000);
-      payload.restricted_at = startedAt.toISOString();
-      payload.restriction_duration_days = days;
+      const endsAt = parseBrazilDateTimeInput(restrictionEndsAt);
+      if (!endsAt) {
+        return toast.error("Informe quando a restrição acaba no formato dd/mm/aaaa hh:mm.");
+      }
+      if (endsAt.getTime() <= Date.now()) {
+        return toast.error("O fim da restrição precisa estar no futuro.");
+      }
+      payload.restricted_at = number.restricted_at ?? number.blocked_at ?? new Date().toISOString();
+      payload.restriction_duration_days = null;
       payload.restriction_ends_at = endsAt.toISOString();
-      if (reason.trim()) payload.block_reason = reason.trim();
+      payload.restriction_under_review = false;
+      payload.block_reason = reason.trim() || null;
     } else {
       payload.restricted_at = null;
       payload.restriction_duration_days = null;
       payload.restriction_ends_at = null;
+      payload.restriction_under_review = false;
     }
+    setSaving(true);
     const { error } = await supabase.from("phone_numbers").update(payload).eq("id", number.id);
     setSaving(false);
     if (error) {
@@ -733,41 +974,17 @@ function StatusDialog({
           </div>
           {status === "blocked" && (
             <>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Data da restrição</Label>
-                  <Input
-                    type="date"
-                    value={restrictionDate}
-                    onChange={(e) => setRestrictionDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Hora da restrição</Label>
-                  <Input
-                    type="time"
-                    value={restrictionTime}
-                    onChange={(e) => setRestrictionTime(e.target.value)}
-                  />
-                </div>
-              </div>
               <div className="space-y-1.5">
-                <Label>Duração</Label>
-                <Select value={duration} onValueChange={(v) => setDuration(v as "1" | "7")}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 dia</SelectItem>
-                    <SelectItem value="7">7 dias</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Fim da restrição</Label>
+                <RestrictionDateTimePicker
+                  value={restrictionEndsAt}
+                  onChange={setRestrictionEndsAt}
+                />
                 <p className="text-xs text-muted-foreground">
-                  Fim previsto:{" "}
-                  {new Date(
-                    new Date(`${restrictionDate}T${restrictionTime}:00`).getTime() +
-                      Number(duration) * 24 * 60 * 60 * 1000,
-                  ).toLocaleString("pt-BR")}
+                  Contagem:{" "}
+                  {formatRestrictionCountdown(
+                    parseBrazilDateTimeInput(restrictionEndsAt)?.toISOString(),
+                  )}
                 </p>
               </div>
               <div className="space-y-1.5">
