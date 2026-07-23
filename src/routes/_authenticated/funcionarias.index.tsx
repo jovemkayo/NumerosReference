@@ -96,7 +96,8 @@ function FuncionariasPage() {
     const list = employeesQ.data ?? [];
     const s = q.trim().toLowerCase();
     return list.filter(
-      (e) => (showInactive || e.is_active) && (!s || e.name.toLowerCase().includes(s)),
+      (e) =>
+        (showInactive ? !e.is_active : e.is_active) && (!s || e.name.toLowerCase().includes(s)),
     );
   }, [employeesQ.data, q, showInactive]);
 

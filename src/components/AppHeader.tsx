@@ -23,7 +23,7 @@ const navItems = [
     to: "/dashboard",
     icon: <LayoutDashboard className="h-4 w-4" />,
     mobileIcon: <LayoutDashboard className="h-5 w-5" />,
-    label: "Dashboard",
+    label: "Início",
   },
   {
     to: "/numeros",

@@ -137,8 +137,15 @@
     border-color: var(--color-border);
   }
 
+  html {
+    background-color: var(--color-background);
+  }
+
   body {
+    min-height: 100dvh;
     background-color: var(--color-background);
     color: var(--color-foreground);
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
   }
 }

@@ -60,34 +60,12 @@ set chip_capacity = excluded.chip_capacity,
 
 alter table public.phone_numbers
 add column if not exists device_id uuid references public.devices(id),
-add column if not exists device_slot integer;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'phone_numbers_device_slot_check'
-  ) then
-    alter table public.phone_numbers
-    add constraint phone_numbers_device_slot_check check (device_slot in (1, 2));
-  end if;
-end $$;
-
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'phone_numbers_device_slot_pair_check'
-  ) then
-    alter table public.phone_numbers
-    add constraint phone_numbers_device_slot_pair_check check (
-      (device_id is null and device_slot is null)
-      or (device_id is not null and device_slot is not null)
-    );
-  end if;
-end $$;
+add column if not exists device_slot integer,
+add constraint phone_numbers_device_slot_check check (device_slot in (1, 2)),
+add constraint phone_numbers_device_slot_pair_check check (
+  (device_id is null and device_slot is null)
+  or (device_id is not null and device_slot is not null)
+);
 
 create unique index if not exists phone_numbers_device_slot_unique
 on public.phone_numbers(device_id, device_slot)

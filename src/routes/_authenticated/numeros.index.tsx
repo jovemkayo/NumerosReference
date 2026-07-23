@@ -54,11 +54,21 @@ import { logInfo, logError } from "@/lib/logger";
 
 export const Route = createFileRoute("/_authenticated/numeros/")({
   head: () => ({ meta: [{ title: "Números - Controle WhatsApp" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    status:
+      typeof search.status === "string" &&
+      ["working", "blocked", "under_review", "deactivated", "permanently_banned"].includes(
+        search.status,
+      )
+        ? (search.status as PhoneStatus)
+        : undefined,
+  }),
   component: NumerosPage,
 });
 
 function NumerosPage() {
   const qc = useQueryClient();
+  const search = Route.useSearch();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | PhoneStatus>("all");
   const [employeeFilter, setEmployeeFilter] = useState<string>("all");
@@ -70,6 +80,10 @@ function NumerosPage() {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setStatusFilter(search.status ?? "all");
+  }, [search.status]);
 
   const numbersQ = useQuery({
     queryKey: ["numbers"],
@@ -182,7 +196,9 @@ function NumerosPage() {
         n.restriction_ends_at,
         now,
       );
-      if (statusFilter !== "all" && effectiveStatus !== statusFilter) return false;
+      if (statusFilter === "under_review") {
+        if (n.status !== "blocked" || !n.restriction_under_review) return false;
+      } else if (statusFilter !== "all" && effectiveStatus !== statusFilter) return false;
       if (employeeFilter === "unassigned" && n.current_employee_id) return false;
       if (
         employeeFilter !== "all" &&
