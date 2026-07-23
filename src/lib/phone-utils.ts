@@ -66,18 +66,34 @@ export function formatPhone(v: string): string {
   return v;
 }
 
+function padDatePart(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const day = padDatePart(date.getDate());
+  const month = padDatePart(date.getMonth() + 1);
+  const year = date.getFullYear();
+  const hour = padDatePart(date.getHours());
+  const minute = padDatePart(date.getMinutes());
+
+  return `${day}/${month}/${year} ${hour}:${minute}`;
 }
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR");
+
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const day = padDatePart(date.getDate());
+  const month = padDatePart(date.getMonth() + 1);
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
 }
