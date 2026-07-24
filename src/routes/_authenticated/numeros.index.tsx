@@ -196,8 +196,10 @@ function NumerosPage() {
         n.restriction_ends_at,
         now,
       );
+      const isUnderReview =
+        n.status === "under_review" || (n.status === "blocked" && n.restriction_under_review);
       if (statusFilter === "under_review") {
-        if (n.status !== "blocked" || !n.restriction_under_review) return false;
+        if (!isUnderReview) return false;
       } else if (statusFilter !== "all" && effectiveStatus !== statusFilter) return false;
       if (employeeFilter === "unassigned" && n.current_employee_id) return false;
       if (
@@ -311,11 +313,16 @@ function NumerosPage() {
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <StatusBadge
-                        status={getEffectivePhoneStatus(
-                          n.status as PhoneStatus,
-                          n.restriction_ends_at,
-                          now,
-                        )}
+                        status={
+                          n.status === "under_review" ||
+                          (n.status === "blocked" && n.restriction_under_review)
+                            ? "under_review"
+                            : getEffectivePhoneStatus(
+                                n.status as PhoneStatus,
+                                n.restriction_ends_at,
+                                now,
+                              )
+                        }
                       />
                       {n.status === "blocked" && n.restriction_ends_at && (
                         <span className="hidden text-[11px] text-muted-foreground sm:block">
